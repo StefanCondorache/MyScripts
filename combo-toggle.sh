@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Copyright (c) 2026 Condorache Ștefan-Eugen
+# 
+# This software is released under the MIT License.
+
 # Define standardized output tags for system logging
 INFO="[INFO]"
 SUCCESS="[SUCCESS]"

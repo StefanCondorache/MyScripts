@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Copyright (c) 2026 Condorache Ștefan-Eugen
+# 
+# This software is released under the MIT License.
+
 INFO="[INFO]"
 SUCCESS="[SUCCESS]"
 WARNING="[WARNING]"
