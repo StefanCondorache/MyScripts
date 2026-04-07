@@ -3,12 +3,13 @@
 # Define standardized output tags for system logging
 INFO="[INFO]"
 SUCCESS="[SUCCESS]"
+WARNING="[WARNING]"
 ERROR="[ERROR]"
 
 # Validate arguments
 if [ -z "$1" ]; then
     echo "$INFO Usage: combo-toggle {on|off}"
-    echo "       on  - Enable Performance Mode (Locks current Wi-Fi parameters & disables Bluetooth scanning)"
+    echo "       on  - Enable Performance Mode (Locks Wi-Fi parameters & disables Bluetooth scanning)"
     echo "       off - Enable Search Mode (Restores default network scanning behavior)"
     exit 1
 fi
@@ -34,13 +35,19 @@ if [ "$1" == "on" ]; then
     echo "$SUCCESS Hardware parameters extracted. Variable [BSSID] recorded as: $BSSID"
     echo "$SUCCESS Frequency data extracted. Variable [FREQ] recorded as: $FREQ MHz"
 
-    # 3. Assess the frequency band for proper protocol assignment
+    # 3. Assess the frequency band and provide diagnostic recommendations
     if [[ "$FREQ" == 5* ]]; then
         BAND="a"
-        echo "$INFO 5 GHz frequency detected. Variable [BAND] recorded as: $BAND"
+        echo "$INFO 5 GHz Wi-Fi frequency detected. Variable [BAND] recorded as: $BAND"
+        echo "$SUCCESS Optimal physical separation achieved. Wi-Fi and Bluetooth are on separate bands."
     elif [[ "$FREQ" == 2* ]]; then
         BAND="bg"
-        echo "$INFO 2.4 GHz frequency detected. Variable [BAND] recorded as: $BAND"
+        echo "$INFO 2.4 GHz Wi-Fi frequency detected. Variable [BAND] recorded as: $BAND"
+        echo "$WARNING [DIAGNOSTIC RECOMMENDATION]"
+        echo "          Bluetooth devices operate exclusively on the 2.4 GHz frequency band."
+        echo "          Your Wi-Fi is currently sharing this same band, forcing the hardware to multiplex."
+        echo "          While this script will minimize interference by disabling background scanning,"
+        echo "          connecting to a 5 GHz Wi-Fi network is highly recommended for complete isolation."
     else
         BAND=""
         echo "$INFO Frequency outside standard parameters. Variable [BAND] remains unassigned."
