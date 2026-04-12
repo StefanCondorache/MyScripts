@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Exec=bash -c "firefox & sleep 3; gnome-terminal -- /home/steppan/Public/connect_bt.sh"
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name=Bluetooth and Second Script
+Comment=Runs two scripts in separate terminals for independent control.
