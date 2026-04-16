@@ -32,14 +32,15 @@ This script is highly portable but relies on modern Linux standards:
 
 ## Installation
 
-1. Download or clone the repository containing `connect_bt.sh` and `install.sh` to your machine.
+1. Clone this repository to your machine:
+   ```bash
+   git clone [https://github.com/StefanCondorache/MyScripts.git](https://github.com/StefanCondorache/MyScripts.git)
+   cd MyScripts/bluetooth
 
 2. Run the included installation script with root privileges:
-
-   ```bash
-   chmod +x install.sh
-   sudo ./install.sh
-   ```
+    ```bash
+    sudo ./install.sh
+    ```
 
 This will automatically install the tool into `/usr/local/bin/connect_bt`, making it accessible globally.
 
