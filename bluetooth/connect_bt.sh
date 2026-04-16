@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Configuration
-TARGET_VOLUME="0.50" # Set to 50%
-SCAN_DURATION="10"   # How long the active scan runs in seconds
+# Configuration (Defaults)
+TARGET_VOLUME="0.50" # Default volume level applied to audio devices (0.50 = 50%)
+SCAN_DURATION="10"   # Default duration the active scan runs in seconds
 
 # Define standardized output colors/tags for the UI
 CYAN='\033[0;36m'
@@ -39,7 +39,24 @@ volume_setting() {
         return 0
     fi
 
-    echo -e "$INFO Audio device detected. Attempting to set the volume to $TARGET_VOLUME for $DEVICE_NAME..."
+    local current_vol="$TARGET_VOLUME"
+    
+    # Interactive prompt for volume override
+    if [ "$INTERACTIVE" = true ]; then
+        echo -e "\n${CYAN}------------------------------------------${NC}"
+        read -p "Set volume for $DEVICE_NAME (0.0 - 1.0) [Default: $TARGET_VOLUME]: " user_vol
+        if [[ -n "$user_vol" ]]; then
+            # Validate it's a number/float
+            if [[ "$user_vol" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                current_vol="$user_vol"
+            else
+                echo -e "$WARNING Invalid volume format. Using default $TARGET_VOLUME."
+            fi
+        fi
+        echo "" # Padding
+    fi
+
+    echo -e "$INFO Audio device detected. Attempting to set the volume to $current_vol for $DEVICE_NAME..."
     
     local deviceID=""
     local attempts=0
@@ -65,7 +82,7 @@ volume_setting() {
         return 1
     fi
 
-    wpctl set-volume "$deviceID" "$TARGET_VOLUME"
+    wpctl set-volume "$deviceID" "$current_vol"
 
     if [ $? -eq 0 ]; then
         echo -e "$SUCCESS Volume set successfully for device ID $deviceID."
@@ -214,7 +231,6 @@ resolve_device_name() {
         local first_octet=$(echo "$mac" | cut -d: -f1)
         
         # Math check: If the second-least significant bit of the first octet is 1, it's a randomized MAC.
-        # In hexadecimal, this means the first octet ends in 2, 6, A, or E.
         if [[ "$first_octet" =~ ^[0-9A-Fa-f][26AaEe]$ ]]; then
             echo "Hidden Device (Randomized Privacy MAC)"
         else
@@ -223,7 +239,6 @@ resolve_device_name() {
             local vendor=""
             
             if [ -f "/usr/share/hwdata/oui.txt" ]; then
-                # Suppress errors, find the matching prefix, and strip out the OUI codes to leave just the name
                 vendor=$(grep -i "^$mac_prefix" /usr/share/hwdata/oui.txt 2>/dev/null | head -n 1 | sed -e 's/^[0-9A-Fa-f]*[[:space:]]*(base 16)[[:space:]]*//' -e 's/^[0-9A-Fa-f]*[[:space:]]*//')
             fi
             
@@ -247,7 +262,7 @@ select_device() {
         mapfile -t devices < <(bluetoothctl devices)
 
         # Build the dynamic menu list, starting with the Scan option
-        local menu_items=("Scan for new devices (${SCAN_DURATION} seconds)")
+        local menu_items=("🔎 Scan for new devices (Custom time)")
         for i in "${!devices[@]}"; do
             mac=$(echo "${devices[$i]}" | awk '{print $2}')
             raw_name=$(echo "${devices[$i]}" | cut -d' ' -f3-)
@@ -314,7 +329,15 @@ select_device() {
         if [ "$selected" -eq 0 ]; then
             # User selected the "Scan" option
             echo ""
-            echo -e "$INFO Scanning for nearby devices for ${SCAN_DURATION} seconds... Please wait."
+            read -p "Enter scan duration in seconds [Default: $SCAN_DURATION]: " user_scan
+            local current_scan="$SCAN_DURATION"
+            
+            # Use user input if it's a valid integer
+            if [[ "$user_scan" =~ ^[0-9]+$ ]]; then
+                current_scan="$user_scan"
+            fi
+            
+            echo -e "$INFO Scanning for nearby devices for ${current_scan} seconds... Please wait."
             
             # Ensure Bluetooth is on before scanning
             if ! is_bluetooth_powered_on; then
@@ -322,8 +345,8 @@ select_device() {
                 sleep 1
             fi
             
-            # Run scan for SCAN_DURATION seconds using the native BlueZ flag
-            bluetoothctl --timeout ${SCAN_DURATION} scan on > /dev/null 2>&1
+            # Run scan for current_scan seconds using the native BlueZ flag
+            bluetoothctl --timeout ${current_scan} scan on > /dev/null 2>&1
             
             # Reset UI variables to redraw the menu with the newly discovered devices
             selected=0
@@ -357,6 +380,16 @@ INTERACTIVE=true
 # Check if a search argument was passed (Bypass GUI with name search)
 if [ -n "$1" ]; then
     INTERACTIVE=false
+    
+    # Check if a custom volume was passed as the second argument
+    if [ -n "$2" ]; then
+        if [[ "$2" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+            TARGET_VOLUME="$2"
+        else
+            echo -e "$WARNING Invalid volume argument '$2'. Falling back to default $TARGET_VOLUME."
+        fi
+    fi
+    
     # Search paired devices for the argument (case-insensitive)
     MATCHES=$(bluetoothctl devices | grep -i "$1")
     MATCH_COUNT=$(echo "$MATCHES" | grep -c "^")
