@@ -247,7 +247,7 @@ select_device() {
         mapfile -t devices < <(bluetoothctl devices)
 
         # Build the dynamic menu list, starting with the Scan option
-        local menu_items=("🔎 Scan for new devices (${SCAN_DURATION} seconds)")
+        local menu_items=("Scan for new devices (${SCAN_DURATION} seconds)")
         for i in "${!devices[@]}"; do
             mac=$(echo "${devices[$i]}" | awk '{print $2}')
             raw_name=$(echo "${devices[$i]}" | cut -d' ' -f3-)
