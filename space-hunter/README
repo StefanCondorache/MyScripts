@@ -1,0 +1,51 @@
+# Space Hunter
+
+A dependency-free Bash TUI utility designed to identify large files and track system storage consumption.
+
+---
+
+## Technical Features
+
+* **Proportional Padding Engine** — Dynamically measures path lengths to scale its layout perfectly to your active terminal width.
+* **Storage Ratio Overview** — Pulls and displays real-time `[Used/Total]` consumption metrics alongside total free space.
+* **Native Navigation Menu** — Built using pure terminal capabilities (`tput`) to process arrow-key selections without external dependencies like `dialog` or `whiptail` [cite: uploaded:stefancondorache/myscripts/MyScripts-cb85d138b953c991702610330510b37b837f65c9/bluetooth/README.md, uploaded:stefancondorache/myscripts/MyScripts-cb85d138b953c991702610330510b37b837f65c9/bluetooth/connect_bt.sh].
+* **Filesystem-Isolated Scanning** — Leverages root-isolated logic (`du -ahx`) to safely calculate target boundaries without crossing mount points.
+
+---
+
+## Quick Start
+
+### Automated Installation
+```bash
+chmod +x install.sh
+./install.sh
+
+```
+
+The installer strips the `.sh` extension automatically to register `space-hunter` as a standard system-wide command.
+
+### Command Usage
+
+| Execution Context | Command Syntax |
+| --- | --- |
+| **Interactive TUI Menu** | `space-hunter` |
+| **Immediate Targeted Scan** | `space-hunter /var/log` |
+
+---
+
+## Interactive TUI Layout
+
+```text
+=======================================================================
+                      SPACE HUNTER STORAGE TUI                         
+=======================================================================
+Use [UP/DOWN] arrows to select target, [ENTER] to execute.
+
+    Root Directory (/)                  (System Partition Root)
+    User Home (/home/steppan)           (User Storage Environment)
+  > /                                   ([55G/180G used] — 125G free)
+    /boot/efi                           ([50M/2048M used] — 2.0G free)
+    /hard                               ([175G/930G used] — 755G free)
+=======================================================================
+
+```
