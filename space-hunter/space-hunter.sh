@@ -43,12 +43,49 @@ analyze_path() {
 # ==========================================
 
 get_menu_options() {
-    # 1. Base hardcoded paths targeting normal development workflows
-    echo "Root Directory (/) "
-    echo "User Home ($HOME) "
+    # 1. Gather raw data from df, filtering out virtual and containerized filesystems
+    # It extracts: Path ($6), Total Size ($2), Used Size ($3), Free Size ($4)
+    local raw_df
+    raw_df=$(df -h -x tmpfs -x devtmpfs -x efivarfs -x loop | awk 'NR>1 {print $6 "," $2 "," $3 "," $4}')
+
+    # 2. Dynamically calculate the longest path string to ensure optimal, proportional padding
+    local max_len=20
+    local paths=("/")
     
-    # 2. Extract active storage mounts while skipping virtual, loop, and containerized filesystems
-    df -h -x tmpfs -x devtmpfs -x efivarfs -x loop | awk 'NR>1 {print $6 " (" $1 " - " $4 " free)"}'
+    # Check length of base targets
+    for p in "Root Directory (/)" "User Home ($HOME)"; do
+        if [ ${#p} -gt $max_len ]; then
+            max_len=${#p}
+        fi
+    done
+
+    # Check length of active system mounts
+    for line in $raw_df; do
+        local mnt_path
+        mnt_path=$(echo "$line" | cut -d, -f1)
+        if [ ${#mnt_path} -gt $max_len ]; then
+            max_len=${#mnt_path}
+        fi
+    done
+
+    # Add a buffer padding cushion (5 extra spaces) for UI breathing room
+    local col_width=$((max_len + 5))
+
+    # 3. Format and print the base standard options
+    printf "%-${col_width}s %s\n" "Root Directory (/)" "(System Partition Root)"
+    printf "%-${col_width}s %s\n" "User Home ($HOME)" "(User Storage Environment)"
+    
+    # 4. Format and print active disks with the used/total space tracker
+    for line in $raw_df; do
+        local path total used free
+        path=$(echo "$line" | cut -d, -f1)
+        total=$(echo "$line" | cut -d, -f2)
+        used=$(echo "$line" | cut -d, -f3)
+        free=$(echo "$line" | cut -d, -f4)
+
+        local details="([${used}/${total} used] — ${free} free)"
+        printf "%-${col_width}s %s\n" "$path" "$details"
+    done
 }
 
 select_target_tui() {
@@ -73,9 +110,9 @@ select_target_tui() {
         first_run=false
 
         # Clear tracking strings out of active terminal pipelines (\033[K)
-        echo -e "${CYAN}==========================================${NC}\033[K"
-        echo -e "${CYAN}        SPACE HUNTER STORAGE TUI          ${NC}\033[K"
-        echo -e "${CYAN}==========================================${NC}\033[K"
+        echo -e "${CYAN}=======================================================================${NC}\033[K"
+        echo -e "${CYAN}                      SPACE HUNTER STORAGE TUI                         ${NC}\033[K"
+        echo -e "${CYAN}=======================================================================${NC}\033[K"
         echo -e "Use [UP/DOWN] arrows to select target, [ENTER] to execute.\033[K"
         echo -e "\033[K"
 
@@ -86,7 +123,7 @@ select_target_tui() {
                 echo -e "    ${targets[$i]}\033[K"
             fi
         done
-        echo -e "${CYAN}==========================================${NC}\033[K"
+        echo -e "${CYAN}=======================================================================${NC}\033[K"
 
         # Read single keypress silently
         read -rsn1 key
@@ -113,15 +150,16 @@ select_target_tui() {
     tput cnorm
     echo "" # Baseline padding
 
-    # Parse and extract the clean path string from the item array index
+    # Parse and extract the clean path string from the left side of our padded selection
     local raw_selection="${targets[$selected]}"
-    TARGET_PATH=$(echo "$raw_selection" | awk '{print $1}')
     
-    # Structural fallback evaluation if special strings were parsed
+    # Structural fallback evaluation depending on which row was captured
     if [[ "$raw_selection" == *"User Home"* ]]; then
         TARGET_PATH="$HOME"
     elif [[ "$raw_selection" == *"Root Directory"* ]]; then
         TARGET_PATH="/"
+    else
+        TARGET_PATH=$(echo "$raw_selection" | awk '{print $1}')
     fi
 }
 
