@@ -16,24 +16,35 @@ SUCCESS="${GREEN}[SUCCESS]${NC}"
 WARNING="${YELLOW}[WARNING]${NC}"
 ERROR="${RED}[ERROR]${NC}"
 
+# Default configuration values
+DEFAULT_LIMIT="100"
+
 # ==========================================
 # CORE ANALYSIS ENGINE
 # ==========================================
 
 analyze_path() {
     local target_dir="$1"
+    local item_limit="${2:-$DEFAULT_LIMIT}"
 
     if [ ! -d "$target_dir" ]; then
         echo -e "$ERROR Target directory '$target_dir' does not exist or is inaccessible."
         exit 1
     fi
 
+    # Ensure the limit is a valid positive integer
+    if ! [[ "$item_limit" =~ ^[0-9]+$ ]]; then
+        echo -e "$WARNING Invalid limit '$item_limit' provided. Falling back to default: $DEFAULT_LIMIT."
+        item_limit="$DEFAULT_LIMIT"
+    fi
+
     echo -e "$INFO Scanning space allocation for: ${YELLOW}$target_dir${NC}"
+    echo -e "$INFO Display limit configured to: ${YELLOW}$item_limit items${NC}"
     echo -e "$WARNING This might take a moment depending on the storage size..."
     echo -e "$INFO Executing root-isolated file calculation...\n"
 
-    # Preserves your exact 'memory' alias logic with elevated file safety (-x blocks jumping to other FS)
-    sudo du -ahx "$target_dir" 2>/dev/null | sort -rh | head -n 100
+    # Preserves your exact 'memory' alias logic with dynamic item limiting
+    sudo du -ahx "$target_dir" 2>/dev/null | sort -rh | head -n "$item_limit"
 
     echo -e "\n$SUCCESS Scan complete for $target_dir."
 }
@@ -43,23 +54,17 @@ analyze_path() {
 # ==========================================
 
 get_menu_options() {
-    # 1. Gather raw data from df, filtering out virtual and containerized filesystems
-    # It extracts: Path ($6), Total Size ($2), Used Size ($3), Free Size ($4)
     local raw_df
     raw_df=$(df -h -x tmpfs -x devtmpfs -x efivarfs -x loop | awk 'NR>1 {print $6 "," $2 "," $3 "," $4}')
 
-    # 2. Dynamically calculate the longest path string to ensure optimal, proportional padding
     local max_len=20
-    local paths=("/")
     
-    # Check length of base targets
     for p in "Root Directory (/)" "User Home ($HOME)"; do
         if [ ${#p} -gt $max_len ]; then
             max_len=${#p}
         fi
     done
 
-    # Check length of active system mounts
     for line in $raw_df; do
         local mnt_path
         mnt_path=$(echo "$line" | cut -d, -f1)
@@ -68,14 +73,11 @@ get_menu_options() {
         fi
     done
 
-    # Add a buffer padding cushion (5 extra spaces) for UI breathing room
     local col_width=$((max_len + 5))
 
-    # 3. Format and print the base standard options
     printf "%-${col_width}s %s\n" "Root Directory (/)" "(System Partition Root)"
     printf "%-${col_width}s %s\n" "User Home ($HOME)" "(User Storage Environment)"
     
-    # 4. Format and print active disks with the used/total space tracker
     for line in $raw_df; do
         local path total used free
         path=$(echo "$line" | cut -d, -f1)
@@ -92,24 +94,20 @@ select_target_tui() {
     local selected=0
     local first_run=true
 
-    # Build the dynamic menu list into an array from active mounts
     mapfile -t targets < <(get_menu_options)
 
     local key=""
     local total_lines=$((6 + ${#targets[@]}))
 
-    # Hide cursor for clean UI, trap ensures it comes back if user hits Ctrl+C
     tput civis
     trap 'tput cnorm; exit' EXIT INT TERM
 
     while true; do
-        # Move cursor up to overwrite previous menu on loops
         if [ "$first_run" = false ]; then
             echo -en "\033[${total_lines}A"
         fi
         first_run=false
 
-        # Clear tracking strings out of active terminal pipelines (\033[K)
         echo -e "${CYAN}=======================================================================${NC}\033[K"
         echo -e "${CYAN}                      SPACE HUNTER STORAGE TUI                         ${NC}\033[K"
         echo -e "${CYAN}=======================================================================${NC}\033[K"
@@ -125,7 +123,6 @@ select_target_tui() {
         done
         echo -e "${CYAN}=======================================================================${NC}\033[K"
 
-        # Read single keypress silently
         read -rsn1 key
         if [[ $key == $'\e' ]]; then
             read -rsn2 key_ext
@@ -140,20 +137,16 @@ select_target_tui() {
                     ;;
             esac
         elif [[ -z $key ]]; then
-            # Enter key pressed
             break
         fi
     done
 
-    # Restore cursor stability
     trap - EXIT INT TERM
     tput cnorm
-    echo "" # Baseline padding
+    echo ""
 
-    # Parse and extract the clean path string from the left side of our padded selection
     local raw_selection="${targets[$selected]}"
     
-    # Structural fallback evaluation depending on which row was captured
     if [[ "$raw_selection" == *"User Home"* ]]; then
         TARGET_PATH="$HOME"
     elif [[ "$raw_selection" == *"Root Directory"* ]]; then
@@ -161,18 +154,26 @@ select_target_tui() {
     else
         TARGET_PATH=$(echo "$raw_selection" | awk '{print $1}')
     fi
+
+    # Interactive prompt for entry count override
+    read -p "Enter number of items to display [Default: $DEFAULT_LIMIT]: " user_limit
+    if [[ -n "$user_limit" ]]; then
+        TARGET_LIMIT="$user_limit"
+    else
+        TARGET_LIMIT="$DEFAULT_LIMIT"
+    fi
+    echo ""
 }
 
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
 
-# Check if an explicit search argument path was specified on invocation
 if [ -n "$1" ]; then
     TARGET_PATH="$1"
-    analyze_path "$TARGET_PATH"
+    TARGET_LIMIT="$2" # Optional second parameter
+    analyze_path "$TARGET_PATH" "$TARGET_LIMIT"
 else
-    # Fallback to Interactive Arrow UI Mode
     select_target_tui
-    analyze_path "$TARGET_PATH"
+    analyze_path "$TARGET_PATH" "$TARGET_LIMIT"
 fi
