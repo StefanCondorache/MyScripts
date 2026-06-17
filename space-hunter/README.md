@@ -10,7 +10,8 @@ A dependency-free Bash TUI utility designed to identify large files and track sy
 * **Storage Ratio Overview** — Pulls and displays real-time `[Used/Total]` consumption metrics alongside total free space.
 * **Native Navigation Menu** — Built using pure terminal capabilities (`tput`) to process arrow-key selections without external dependencies like `dialog` or `whiptail`.
 * **Configurable Item Limiting** — Allows defining a maximum result threshold on demand, preventing terminal flooding during heavy file directory sweeps.
-* **Filesystem-Isolated Scanning** — Leverages root-isolated logic (`du -ahx`) to safely calculate target boundaries without crossing mount points.
+* **Granular Target Selection** — Defaults to isolated file calculations (`-type f`), with a fallback switch to include complete structural directories.
+* **Filesystem-Isolated Scanning** — Leverages root-isolated logic (`-xdev` and `du -ahx`) to safely calculate target boundaries without crossing mount points.
 
 ---
 
@@ -29,9 +30,9 @@ The installer strips the `.sh` extension automatically to register `space-hunter
 
 | Execution Context | Command Syntax | Description |
 | --- | --- | --- |
-| **Interactive TUI Menu** | `space-hunter` | Launches the target menu and prompts for an optional display limit. |
-| **Targeted Scan (Default Limit)** | `space-hunter /var/log` | Scans the path and defaults to showing the top 100 entries. |
-| **Targeted Scan (Custom Limit)** | `space-hunter /var/log 20` | Scans the path and restricts output to the top 20 largest items. |
+| **Interactive TUI Menu** | `space-hunter` | Launches the target menu, prompts for directory inclusion, and asks for a display limit. |
+| **Targeted Scan (Files Only)** | `space-hunter /var/log 20` | Restricts output strictly to the top 20 largest individual files. |
+| **Targeted Scan (With Directories)** | `space-hunter -d /var/log 20` | Includes cumulative directory size blocks alongside large files, bounded to 20 items. |
 
 ---
 
@@ -50,4 +51,7 @@ Use [UP/DOWN] arrows to select target, [ENTER] to execute.
     /hard                               ([175G/930G used] — 755G free)
 =======================================================================
 
+Include directories in the scan results? (y/N): n
 Enter number of items to display [Default: 100]: 20
+
+```
