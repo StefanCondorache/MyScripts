@@ -18,6 +18,7 @@ ERROR="${RED}[ERROR]${NC}"
 
 # Default configuration values
 DEFAULT_LIMIT="100"
+INCLUDE_DIRS=false
 
 # ==========================================
 # CORE ANALYSIS ENGINE
@@ -38,13 +39,19 @@ analyze_path() {
         item_limit="$DEFAULT_LIMIT"
     fi
 
-    echo -e "$INFO Scanning space allocation for: ${YELLOW}$target_dir${NC}"
     echo -e "$INFO Display limit configured to: ${YELLOW}$item_limit items${NC}"
     echo -e "$WARNING This might take a moment depending on the storage size..."
-    echo -e "$INFO Executing root-isolated file calculation...\n"
+    echo -e "$INFO Executing root-isolated space calculation...\n"
 
-    # Preserves your exact 'memory' alias logic with dynamic item limiting
-    sudo du -ahx "$target_dir" 2>/dev/null | sort -rh | head -n "$item_limit"
+    if [ "$INCLUDE_DIRS" = true ]; then
+        echo -e "$INFO Scanning space allocation for ${YELLOW}both files and directories${NC} in: ${YELLOW}$target_dir${NC}"
+        # Highly optimized single-pass traversal (your original memory alias logic)
+        sudo du -ahx "$target_dir" 2>/dev/null | sort -rh | head -n "$item_limit"
+    else
+        echo -e "$INFO Scanning space allocation for ${YELLOW}files only${NC} in: ${YELLOW}$target_dir${NC}"
+        # Files-only filter requires find to isolate individual file nodes efficiently
+        sudo find "$target_dir" -xdev -type f -exec du -h {} + 2>/dev/null | sort -rh | head -n "$item_limit"
+    fi
 
     echo -e "\n$SUCCESS Scan complete for $target_dir."
 }
@@ -155,6 +162,12 @@ select_target_tui() {
         TARGET_PATH=$(echo "$raw_selection" | awk '{print $1}')
     fi
 
+    # Interactive prompt to include directories
+    read -p "Include directories in the scan results? (y/N): " include_dirs_ans
+    if [[ "$include_dirs_ans" =~ ^[Yy]$ ]]; then
+        INCLUDE_DIRS=true
+    fi
+
     # Interactive prompt for entry count override
     read -p "Enter number of items to display [Default: $DEFAULT_LIMIT]: " user_limit
     if [[ -n "$user_limit" ]]; then
@@ -166,12 +179,27 @@ select_target_tui() {
 }
 
 # ==========================================
-# MAIN EXECUTION
+# MAIN EXECUTION & ARGUMENT PARSING
 # ==========================================
+
+# Parse flags first
+while [[ "$1" =~ ^- ]]; do
+    case "$1" in
+        -d|--dirs)
+            INCLUDE_DIRS=true
+            shift
+            ;;
+        *)
+            echo -e "$ERROR Unknown flag provided: $1"
+            echo "Usage: space-hunter [-d|--dirs] [path] [limit]"
+            exit 1
+            ;;
+    esac
+done
 
 if [ -n "$1" ]; then
     TARGET_PATH="$1"
-    TARGET_LIMIT="$2" # Optional second parameter
+    TARGET_LIMIT="$2" 
     analyze_path "$TARGET_PATH" "$TARGET_LIMIT"
 else
     select_target_tui
