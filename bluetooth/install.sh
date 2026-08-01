@@ -1,46 +1,73 @@
 #!/bin/bash
 
+# Copyright (c) 2026 Condorache Ștefan-Eugen
+#
+# This software is released under the MIT License.
+
 # Configuration
 SOURCE_FILE="connect_bt.sh"
-TARGET_DIR="/usr/local/bin"
-COMMAND_NAME="connect_bt"
+TARGET_PATH="/usr/local/bin/connect_bt"
 
-# Define colors for output
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+INFO="[INFO]"
+SUCCESS="[SUCCESS]"
+WARNING="[WARNING]"
+ERROR="[ERROR]"
 
-echo -e "${CYAN}==========================================${NC}"
-echo -e "${CYAN}   Bluetooth Manager Installer            ${NC}"
-echo -e "${CYAN}==========================================${NC}"
+# 1. DISCLAIMER & USER CONSENT
+echo "==========================================================="
+echo "             CONNECT-BT AUTOMATED INSTALLER                "
+echo "==========================================================="
+echo "$WARNING DISCLAIMER & TERMS OF USE"
+echo "This installer will copy the 'connect_bt.sh' script to your"
+echo "system's binary directory ($TARGET_PATH) so it can be run"
+echo "as a standard system-wide command."
+echo ""
+echo "This tool manages Bluetooth pairing and may restart the"
+echo "bluetooth.service daemon. By proceeding, you accept full"
+echo "responsibility for its use."
+echo "==========================================================="
 
-# Check for root privileges
-if [ "$EUID" -ne 0 ]; then
-  echo -e "${RED}[ERROR] Please run this installer with root privileges.${NC}"
-  echo -e "Usage: sudo ./install.sh"
-  exit 1
+read -p "Do you want to continue? (y/N): " CONSENT
+
+if [[ "$CONSENT" != "y" && "$CONSENT" != "Y" ]]; then
+    echo "$INFO Installation aborted."
+    exit 0
 fi
 
-# Check if the source script exists in the current directory
+# 2. VERIFY SOURCE FILE EXISTS
 if [ ! -f "$SOURCE_FILE" ]; then
-  echo -e "${RED}[ERROR] $SOURCE_FILE not found in the current directory.${NC}"
-  echo "Please run this installer from the same folder as the script."
-  exit 1
+    echo "$ERROR '$SOURCE_FILE' not found in the current directory."
+    echo "        Please ensure both files are in the same folder."
+    exit 1
 fi
 
-echo -e "[INFO] Installing to ${TARGET_DIR}/${COMMAND_NAME}..."
+# 3. CHECK DEPENDENCIES
+if ! command -v bluetoothctl >/dev/null 2>&1; then
+    echo "$ERROR 'bluetoothctl' not found. Please install BlueZ first."
+    exit 1
+fi
 
-# Copy the file and strip the .sh extension for a cleaner command
-cp "$SOURCE_FILE" "${TARGET_DIR}/${COMMAND_NAME}"
+if ! command -v wpctl >/dev/null 2>&1; then
+    echo "$WARNING 'wpctl' not found. Automatic volume setup will be skipped"
+    echo "          (PipeWire / WirePlumber is optional)."
+fi
 
-# Ensure the newly copied file is executable
-chmod +x "${TARGET_DIR}/${COMMAND_NAME}"
+echo ""
+echo "$INFO Beginning installation..."
+echo "$INFO You may be prompted for your sudo password to write to /usr/local/bin."
 
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}[SUCCESS] Installation complete!${NC}"
-    echo -e "\nYou can now run the tool from anywhere by typing:\n  ${GREEN}${COMMAND_NAME}${NC}\n"
+# 4. DEPLOY & SET PERMISSIONS
+# Copy the file to the binaries folder (dropping the .sh extension for a clean CLI command)
+sudo cp "$SOURCE_FILE" "$TARGET_PATH"
+sudo chmod +x "$TARGET_PATH"
+
+# Verify the file exists and is executable
+if [ -x "$TARGET_PATH" ]; then
+    echo ""
+    echo "$SUCCESS Installation complete! The script has been deployed to $TARGET_PATH."
+    echo "$INFO Usage: connect_bt [device] [volume]"
+    echo "       Running 'connect_bt' without arguments will launch the TUI menu."
 else
-    echo -e "${RED}[ERROR] Failed to copy the file to ${TARGET_DIR}.${NC}"
+    echo "$ERROR Installation failed. Could not verify target executable."
     exit 1
 fi

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Copyright (c) 2026 Condorache Ștefan-Eugen
+#
+# This software is released under the MIT License.
+
 # Configuration (Defaults)
 TARGET_VOLUME="0.50" # Default volume level applied to audio devices (0.50 = 50%)
 SCAN_DURATION="10"   # Default duration the active scan runs in seconds
@@ -149,7 +153,7 @@ remove_connect() {
 bluetooth_connect() {
     local tries=${1:-1}
 
-    if [ "$tries" -ge 3 ]; then
+    if [ "$tries" -gt 3 ]; then
         echo -e "$ERROR Failed to connect after 3 attempts."
         return 1
     fi
@@ -291,7 +295,7 @@ select_device() {
             echo -e "${CYAN}==========================================${NC}\033[K"
             echo -e "${CYAN}      BLUETOOTH DEVICE SELECTOR           ${NC}\033[K"
             echo -e "${CYAN}==========================================${NC}\033[K"
-            echo -e "Use [UP/DOWN] arrows to select, [ENTER] to confirm.\033[K"
+            echo -e "Use [UP/DOWN] arrows to select, [ENTER] to confirm, [Q] to quit.\033[K"
             echo -e "\033[K"
 
             for i in "${!menu_items[@]}"; do
@@ -317,6 +321,11 @@ select_device() {
                         if [ "$selected" -ge ${#menu_items[@]} ]; then selected=0; fi
                         ;;
                 esac
+            elif [[ $key == "q" || $key == "Q" ]]; then
+                trap - EXIT INT TERM
+                tput cnorm
+                echo -e "\n$INFO Exiting."
+                exit 0
             elif [[ -z $key ]]; then
                 # Enter key (empty string)
                 break
@@ -375,12 +384,35 @@ select_device() {
 # MAIN EXECUTION
 # ==========================================
 
+usage() {
+    echo "Usage: connect_bt [device] [volume]"
+    echo ""
+    echo "  device   Partial name or MAC address of a known device."
+    echo "           Omit it to launch the interactive TUI."
+    echo "  volume   Volume applied to audio devices, 0.0 - 1.0 (default: $TARGET_VOLUME)."
+    echo ""
+    echo "  -h, --help   Show this message."
+}
+
+# Verify the core Bluetooth stack is present before doing anything
+if ! command -v bluetoothctl >/dev/null 2>&1; then
+    echo -e "$ERROR 'bluetoothctl' not found. Please install BlueZ."
+    exit 1
+fi
+
 INTERACTIVE=true
+
+case "$1" in
+    -h|--help)
+        usage
+        exit 0
+        ;;
+esac
 
 # Check if a search argument was passed (Bypass GUI with name search)
 if [ -n "$1" ]; then
     INTERACTIVE=false
-    
+
     # Check if a custom volume was passed as the second argument
     if [ -n "$2" ]; then
         if [[ "$2" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
@@ -403,7 +435,7 @@ if [ -n "$1" ]; then
         exit 1
     else
         DEVICE_MAC=$(echo "$MATCHES" | awk '{print $2}')
-        DEVICE_NAME=$(echo "$MATCHES" | cut -d' ' -f3-)
+        DEVICE_NAME=$(resolve_device_name "$(echo "$MATCHES" | cut -d' ' -f3-)" "$DEVICE_MAC")
         echo -e "$INFO Fast-track mode: Identified $DEVICE_NAME ($DEVICE_MAC)"
     fi
 fi

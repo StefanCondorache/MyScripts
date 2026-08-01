@@ -33,16 +33,17 @@ This script is highly portable but relies on modern Linux standards:
 ## Installation
 
 1. Clone this repository to your machine:
-   ```bash
-   git clone [https://github.com/StefanCondorache/MyScripts.git](https://github.com/StefanCondorache/MyScripts.git)
-   cd MyScripts/bluetooth
-
-2. Run the included installation script with root privileges:
     ```bash
-    sudo ./install.sh
+    git clone https://github.com/StefanCondorache/combo-toggle.git
+    cd combo-toggle/bluetooth
     ```
 
-This will automatically install the tool into `/usr/local/bin/connect_bt`, making it accessible globally.
+2. Run the included installer:
+    ```bash
+    ./install.sh
+    ```
+
+It checks your dependencies, then prompts for your sudo password to install the tool into `/usr/local/bin/connect_bt`, making it accessible globally.
 
 ## Usage
 
@@ -56,6 +57,7 @@ connect_bt
 
 * Use the **Up/Down arrow keys** to navigate.
 * Press **Enter** to connect to a known device.
+* Press **Q** to quit the menu.
 * Select **"🔎 Scan for new devices"** to actively listen for nearby unpaired devices (you will be prompted for how many seconds to scan).
 * When connecting to an audio device, you will be prompted to optionally set a custom volume level.
 
@@ -74,7 +76,12 @@ connect_bt "JBL" 0.75
 
 # Connect using a MAC address and set volume to 100%
 connect_bt "40:72:18:8A:23:81" 1.0
+
+# Show usage
+connect_bt --help
 ```
+
+If the search term matches more than one paired device the script lists the matches and exits, so you can narrow it down. Connection is retried up to 3 times, restarting the Bluetooth stack between failures.
 
 ## Configuration
 
