@@ -54,9 +54,10 @@ sudo chmod +x "$TARGET_PATH"
 # Verify the file exists and is executable
 if [ -x "$TARGET_PATH" ]; then
     echo "$SUCCESS Installation complete! The script has been deployed to $TARGET_PATH."
-    echo "$INFO Usage: combo-toggle {on|off}"
-    echo "       on  - Enable Performance Mode"
-    echo "       off - Enable Search Mode"
+    echo "$INFO Usage: combo-toggle {on|off|status}"
+    echo "       on     - Enable Performance Mode"
+    echo "       off    - Enable Search Mode"
+    echo "       status - Report the current mode"
 else
     echo "$ERROR Installation failed. Could not verify target executable."
     exit 1

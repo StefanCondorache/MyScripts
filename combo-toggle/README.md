@@ -31,7 +31,9 @@ The script relies on `nmcli` (NetworkManager) and `bluetoothctl` (BlueZ). Here i
 
 ### Variable Detection
 * `nmcli -t -f NAME,TYPE connection show --active`
-  Detects the currently active Wi-Fi profile dynamically.
+  Detects the currently active Wi-Fi profile dynamically. Only the trailing type field is stripped, so profile names containing colons survive intact.
+* `nmcli -g 802-11-wireless.bssid connection show "$SSID"`
+  Reads the current lock state of the profile. A non-empty value means Performance Mode is already active.
 * `nmcli -f IN-USE,BSSID,FREQ device wifi list`
   Extracts the specific hardware MAC address (BSSID) and frequency of the active router connection.
 
@@ -56,8 +58,8 @@ To install the script as a native system command, simply clone this repository a
 
 1. Clone the repository:
     ```bash
-    git clone [https://github.com/StefanCondorache/combo-toggle.git](https://github.com/StefanCondorache/combo-toggle.git)
-    cd combo-toggle
+    git clone https://github.com/StefanCondorache/combo-toggle.git
+    cd combo-toggle/combo-toggle
     ```
 
 2. Run the installer:
@@ -80,6 +82,13 @@ Restore default scanning behavior (Search Mode):
 ```bash
 combo-toggle off
 ```
+
+Check which mode the active profile is in (read-only, never touches the connection):
+```bash
+combo-toggle status
+```
+
+The script is idempotent: if the requested mode is already active it aborts instead of restarting the connection. If it cannot read the BSSID of your access point it aborts as well, rather than writing an empty lock to the profile.
 
 ## 7. Compatibility & Disclaimer
 **Notice:** This script has been written for and tested exclusively on **Arch Linux**. 
