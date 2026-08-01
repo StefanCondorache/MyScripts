@@ -12,6 +12,7 @@ A dependency-free Bash TUI utility designed to identify large files and track sy
 * **Configurable Item Limiting** — Allows defining a maximum result threshold on demand, preventing terminal flooding during heavy file directory sweeps.
 * **Granular Target Selection** — Defaults to isolated file calculations (`-type f`), with a fallback switch to include complete structural directories.
 * **Filesystem-Isolated Scanning** — Leverages root-isolated logic (`-xdev` and `du -ahx`) to safely calculate target boundaries without crossing mount points.
+* **Conditional Privilege Escalation** — Only invokes `sudo` when the target actually requires it. Scanning inside your own home directory never asks for a password.
 
 ---
 
@@ -21,7 +22,6 @@ A dependency-free Bash TUI utility designed to identify large files and track sy
 ```bash
 chmod +x install.sh
 ./install.sh
-
 ```
 
 The installer strips the `.sh` extension automatically to register `space-hunter` as a standard system-wide command.
@@ -33,6 +33,16 @@ The installer strips the `.sh` extension automatically to register `space-hunter
 | **Interactive TUI Menu** | `space-hunter` | Launches the target menu, prompts for directory inclusion, and asks for a display limit. |
 | **Targeted Scan (Files Only)** | `space-hunter /var/log 20` | Restricts output strictly to the top 20 largest individual files. |
 | **Targeted Scan (With Directories)** | `space-hunter -d /var/log 20` | Includes cumulative directory size blocks alongside large files, bounded to 20 items. |
+| **Help** | `space-hunter -h` | Prints usage and exits. |
+
+### Flags
+
+| Flag | Effect |
+| --- | --- |
+| `-d`, `--dirs` | Include directory totals, not just individual files. |
+| `-h`, `--help` | Show usage. |
+
+Flags may be placed anywhere in the command; the remaining arguments are read as `path` then `limit`. An invalid or zero limit falls back to the default of 100.
 
 ---
 
@@ -42,7 +52,7 @@ The installer strips the `.sh` extension automatically to register `space-hunter
 =======================================================================
                       SPACE HUNTER STORAGE TUI                         
 =======================================================================
-Use [UP/DOWN] arrows to select target, [ENTER] to execute.
+Use [UP/DOWN] arrows to select target, [ENTER] to execute, [Q] to quit.
 
     Root Directory (/)                  (System Partition Root)
     User Home (/home/steppan)           (User Storage Environment)
@@ -53,5 +63,10 @@ Use [UP/DOWN] arrows to select target, [ENTER] to execute.
 
 Include directories in the scan results? (y/N): n
 Enter number of items to display [Default: 100]: 20
-
 ```
+
+---
+
+## Compatibility
+
+Written and tested on **Arch Linux**. Requires only `bash`, `coreutils` (`du`, `df`, `sort`), `findutils` and `ncurses` (`tput`) — all present on a standard install.

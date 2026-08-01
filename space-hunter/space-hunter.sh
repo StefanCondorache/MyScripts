@@ -34,9 +34,17 @@ analyze_path() {
     fi
 
     # Ensure the limit is a valid positive integer
-    if ! [[ "$item_limit" =~ ^[0-9]+$ ]]; then
+    if ! [[ "$item_limit" =~ ^[0-9]+$ ]] || [ "$item_limit" -eq 0 ]; then
         echo -e "$WARNING Invalid limit '$item_limit' provided. Falling back to default: $DEFAULT_LIMIT."
         item_limit="$DEFAULT_LIMIT"
+    fi
+
+    # Only escalate when the target actually needs it — scanning your own files should not ask for a password
+    local sudo_cmd="sudo"
+    local real_dir
+    real_dir=$(realpath "$target_dir")
+    if [ "$EUID" -eq 0 ] || [ "$real_dir" = "$HOME" ] || [[ "$real_dir" == "$HOME"/* ]]; then
+        sudo_cmd=""
     fi
 
     echo -e "$INFO Display limit configured to: ${YELLOW}$item_limit items${NC}"
@@ -46,11 +54,11 @@ analyze_path() {
     if [ "$INCLUDE_DIRS" = true ]; then
         echo -e "$INFO Scanning space allocation for ${YELLOW}both files and directories${NC} in: ${YELLOW}$target_dir${NC}"
         # Highly optimized single-pass traversal (your original memory alias logic)
-        sudo du -ahx "$target_dir" 2>/dev/null | sort -rh | head -n "$item_limit"
+        $sudo_cmd du -ahx "$target_dir" 2>/dev/null | sort -rh | head -n "$item_limit"
     else
         echo -e "$INFO Scanning space allocation for ${YELLOW}files only${NC} in: ${YELLOW}$target_dir${NC}"
         # Files-only filter requires find to isolate individual file nodes efficiently
-        sudo find "$target_dir" -xdev -type f -exec du -h {} + 2>/dev/null | sort -rh | head -n "$item_limit"
+        $sudo_cmd find "$target_dir" -xdev -type f -exec du -h {} + 2>/dev/null | sort -rh | head -n "$item_limit"
     fi
 
     echo -e "\n$SUCCESS Scan complete for $target_dir."
@@ -62,19 +70,19 @@ analyze_path() {
 
 get_menu_options() {
     local raw_df
-    raw_df=$(df -h -x tmpfs -x devtmpfs -x efivarfs -x loop | awk 'NR>1 {print $6 "," $2 "," $3 "," $4}')
+    mapfile -t raw_df < <(df -h -x tmpfs -x devtmpfs -x efivarfs -x loop | awk 'NR>1 {print $6 "," $2 "," $3 "," $4}')
 
     local max_len=20
-    
+    local p line
+
     for p in "Root Directory (/)" "User Home ($HOME)"; do
         if [ ${#p} -gt $max_len ]; then
             max_len=${#p}
         fi
     done
 
-    for line in $raw_df; do
-        local mnt_path
-        mnt_path=$(echo "$line" | cut -d, -f1)
+    for line in "${raw_df[@]}"; do
+        local mnt_path="${line%%,*}"
         if [ ${#mnt_path} -gt $max_len ]; then
             max_len=${#mnt_path}
         fi
@@ -84,13 +92,10 @@ get_menu_options() {
 
     printf "%-${col_width}s %s\n" "Root Directory (/)" "(System Partition Root)"
     printf "%-${col_width}s %s\n" "User Home ($HOME)" "(User Storage Environment)"
-    
-    for line in $raw_df; do
+
+    for line in "${raw_df[@]}"; do
         local path total used free
-        path=$(echo "$line" | cut -d, -f1)
-        total=$(echo "$line" | cut -d, -f2)
-        used=$(echo "$line" | cut -d, -f3)
-        free=$(echo "$line" | cut -d, -f4)
+        IFS=, read -r path total used free <<< "$line"
 
         local details="([${used}/${total} used] — ${free} free)"
         printf "%-${col_width}s %s\n" "$path" "$details"
@@ -118,7 +123,7 @@ select_target_tui() {
         echo -e "${CYAN}=======================================================================${NC}\033[K"
         echo -e "${CYAN}                      SPACE HUNTER STORAGE TUI                         ${NC}\033[K"
         echo -e "${CYAN}=======================================================================${NC}\033[K"
-        echo -e "Use [UP/DOWN] arrows to select target, [ENTER] to execute.\033[K"
+        echo -e "Use [UP/DOWN] arrows to select target, [ENTER] to execute, [Q] to quit.\033[K"
         echo -e "\033[K"
 
         for i in "${!targets[@]}"; do
@@ -143,6 +148,11 @@ select_target_tui() {
                     if [ "$selected" -ge ${#targets[@]} ]; then selected=0; fi
                     ;;
             esac
+        elif [[ $key == "q" || $key == "Q" ]]; then
+            trap - EXIT INT TERM
+            tput cnorm
+            echo -e "\n$INFO Aborted."
+            exit 0
         elif [[ -z $key ]]; then
             break
         fi
@@ -182,26 +192,45 @@ select_target_tui() {
 # MAIN EXECUTION & ARGUMENT PARSING
 # ==========================================
 
-# Parse flags first
-while [[ "$1" =~ ^- ]]; do
+usage() {
+    echo "Usage: space-hunter [-d|--dirs] [path] [limit]"
+    echo ""
+    echo "  -d, --dirs   Include directory totals, not just individual files."
+    echo "  -h, --help   Show this message."
+    echo ""
+    echo "  path         Directory to scan. Omit it to launch the interactive TUI."
+    echo "  limit        Number of results to display (default: $DEFAULT_LIMIT)."
+}
+
+# Flags may appear anywhere; the remaining positional arguments are path and limit
+POSITIONAL=()
+
+while [ $# -gt 0 ]; do
     case "$1" in
         -d|--dirs)
             INCLUDE_DIRS=true
-            shift
             ;;
-        *)
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -*)
             echo -e "$ERROR Unknown flag provided: $1"
-            echo "Usage: space-hunter [-d|--dirs] [path] [limit]"
+            usage
             exit 1
             ;;
+        *)
+            POSITIONAL+=("$1")
+            ;;
     esac
+    shift
 done
 
-if [ -n "$1" ]; then
-    TARGET_PATH="$1"
-    TARGET_LIMIT="$2" 
-    analyze_path "$TARGET_PATH" "$TARGET_LIMIT"
+if [ ${#POSITIONAL[@]} -gt 0 ]; then
+    TARGET_PATH="${POSITIONAL[0]}"
+    TARGET_LIMIT="${POSITIONAL[1]}"
 else
     select_target_tui
-    analyze_path "$TARGET_PATH" "$TARGET_LIMIT"
 fi
+
+analyze_path "$TARGET_PATH" "$TARGET_LIMIT"
