@@ -1,22 +1,42 @@
-# MyScripts
+# ArchScript
 
-This repository contains a collection of personal scripts created to solve specific problems. These scripts are tailored for my personal setup and are intended to help automate certain tasks.
+A collection of small, self-contained Bash tools written to solve specific annoyances on my Arch Linux setup. Each one lives in its own folder with its own installer and README, and installs as a system-wide command.
 
-## Purpose
-The primary purpose of these scripts is to address specific needs and challenges that I encounter in my workflow. They may include various utilities, automation scripts, or snippets that simplify tasks.
+## The Tools
 
-## What's Included
-- A variety of scripts targeting different aspects of personal and professional projects.
-- Each script file is named descriptively to indicate its functionality.
+| Tool | Command | What it does |
+| --- | --- | --- |
+| [smart-open](smart-open/) | `smart-open [file...]` | Universal opener. Routes files by MIME type: text and code to your editor, everything else to the desktop default. |
+| [space-hunter](space-hunter/) | `space-hunter [path] [limit]` | Finds what is eating your disk. Arrow-key TUI listing mount points with usage, then lists the largest files. |
+| [bluetooth](bluetooth/) | `connect_bt [device]` | Self-healing Bluetooth manager. TUI device picker, automatic daemon recovery, PipeWire volume setup. |
+| [combo-toggle](combo-toggle/) | `combo-toggle {on\|off\|status}` | Stops Bluetooth audio stutter on Wi-Fi/BT combo chips by locking the Wi-Fi profile to one band and access point. |
 
-## Usage Notes
-- These scripts are not guaranteed to work on all systems or setups. They were created with my specific environment in mind.
-- Be sure to review each script and adjust any configurations that may be necessary for your own setup.
-- Usage instructions may be found in comments within each script file, where applicable.
+## Installation
 
-## Disclaimer
-These scripts may not function universally and might require changes to work on different systems. Feel free to explore and use them, but please understand they are provided "as is" without any guarantees.
+Every tool follows the same pattern — clone once, then install the ones you want:
 
----
+```bash
+git clone https://github.com/StefanCondorache/combo-toggle.git
+cd combo-toggle/space-hunter
+./install.sh
+```
 
-*Last Updated: 2026-04-16 07:06:48 UTC*
+Each installer asks for confirmation, checks its dependencies, then copies the script to `/usr/local/bin/` without the `.sh` extension. You will be prompted for your sudo password at that step. Uninstalling is just `sudo rm /usr/local/bin/<command>`.
+
+## Conventions
+
+Shared across all four tools, so they behave predictably:
+
+* Pure Bash, no runtime dependencies beyond standard system utilities (`nmcli`, `bluetoothctl`, `du`, `file`).
+* TUIs are built on `tput` and ANSI escapes — no `dialog` or `whiptail`.
+* `-h` / `--help` on every command.
+* Tagged output: `[INFO]`, `[SUCCESS]`, `[WARNING]`, `[ERROR]`.
+* Interactive by default, scriptable via arguments.
+
+## Compatibility
+
+Written for and tested on **Arch Linux**. The logic is standard enough for any distribution running NetworkManager, BlueZ and freedesktop.org tooling, but defaults and daemon behaviour differ elsewhere. Read the script before running it, and adjust for your setup.
+
+## Licence
+
+MIT. See [LICENCE](LICENCE).
